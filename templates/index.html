@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}作文智能评阅系统{% endblock %}
+
+{% block header %}智能作文评阅系统{% endblock %}
+
+{% block styles %}
+<style>
+    .evaluation-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 2rem;
+    }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+        margin-bottom: 3rem;
+        padding: 1rem;
+    }
+
+    .feature-item {
+        background: white;
+        padding: 2rem;
+        border-radius: var(--border-radius);
+        text-align: center;
+        box-shadow: var(--box-shadow);
+        transition: transform 0.3s ease;
+    }
+
+    .feature-item:hover {
+        transform: translateY(-10px);
+    }
+
+    .feature-item i {
+        font-size: 3rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+
+    .feature-item h3 {
+        color: var(--secondary-color);
+        margin: 1rem 0;
+        font-size: 1.5rem;
+    }
+
+    .feature-item p {
+        color: #666;
+        margin: 0;
+    }
+
+    .input-section {
+        background: white;
+        padding: 2.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .input-group {
+        margin-bottom: 2rem;
+    }
+
+    .input-label {
+        font-size: 1.1rem;
+        margin-bottom: 0.8rem;
+        display: block;
+        color: var(--secondary-color);
+    }
+
+    .input-with-button {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .title-input {
+        flex: 1;
+        padding: 1rem;
+        border: 2px solid #e1e8ed;
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .content-input {
+        flex: 1;
+        padding: 1rem;
+        border: 2px solid #e1e8ed;
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        min-height: 200px;
+        resize: vertical;
+        transition: all 0.3s ease;
+    }
+
+    .title-input:focus, .content-input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+
+    .speech-btn {
+        padding: 0 1.5rem;
+        background: #f8f9fa;
+        border: 2px solid #e1e8ed;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .speech-btn:hover {
+        background: #e9ecef;
+        border-color: #dee2e6;
+    }
+
+    .speech-btn i {
+        font-size: 1.2rem;
+        color: var(--primary-color);
+    }
+
+    .grade-select {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid #e1e8ed;
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        background: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .grade-select:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 1.2rem;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8rem;
+        margin-top: 2rem;
+    }
+
+    .submit-btn:hover {
+        background: #2980b9;
+        transform: translateY(-2px);
+    }
+
+    .submit-btn i {
+        font-size: 1.4rem;
+    }
+
+    @media (max-width: 768px) {
+        .features {
+            grid-template-columns: 1fr;
+        }
+
+        .evaluation-container {
+            padding: 1rem;
+        }
+
+        .input-section {
+            padding: 1.5rem;
+        }
+
+        .input-with-button {
+            flex-direction: column;
+        }
+
+        .speech-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="evaluation-container">
+    <div class="features">
+        <div class="feature-item">
+            <i class="fas fa-robot"></i>
+            <h3>AI智能评阅</h3>
+            <p>专业的评分标准</p>
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-chart-line"></i>
+            <h3>多维度分析</h3>
+            <p>全方位评价反馈</p>
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-lightbulb"></i>
+            <h3>个性化建议</h3>
+            <p>针对性改进意见</p>
+        </div>
+    </div>
+
+    <div class="input-section">
+        <div class="input-group">
+            <label class="input-label">年级选择</label>
+            <select id="gradeLevel" class="grade-select">
+                <option value="primary">小学</option>
+                <option value="junior">初中</option>
+                <option value="senior">高中</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label class="input-label">作文标题</label>
+            <div class="input-with-button">
+                <input type="text" id="title" placeholder="请输入作文标题" class="title-input">
+                <button id="titleSpeechBtn" class="speech-btn">
+                    <i class="fas fa-microphone"></i>语音输入
+                </button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">作文内容</label>
+            <div class="input-with-button">
+                <textarea id="content" placeholder="请输入作文内容" class="content-input"></textarea>
+                <button id="contentSpeechBtn" class="speech-btn">
+                    <i class="fas fa-microphone"></i>语音输入
+                </button>
+            </div>
+        </div>
+        
+        <button id="submitBtn" class="submit-btn">
+            <i class="fas fa-pen-fancy"></i>开始评阅
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/evaluation.js') }}"></script>
+{% endblock %} 

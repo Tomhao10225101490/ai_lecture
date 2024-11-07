@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}作文智能评阅系统{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/5.15.4/css/all.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <div class="header">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="AI作文评阅" class="site-logo">
+        <h1>{% block header %}智能作文评阅系统{% endblock %}</h1>
+        <nav class="main-nav">
+            <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                <i class="fas fa-pen-alt"></i>作文评阅
+            </a>
+            <a href="{{ url_for('history') }}" class="nav-item {% if request.endpoint == 'history' %}active{% endif %}">
+                <i class="fas fa-history"></i>评阅历史
+            </a>
+            <a href="{{ url_for('examples') }}" class="nav-item {% if request.endpoint == 'examples' %}active{% endif %}">
+                <i class="fas fa-book"></i>优秀范文
+            </a>
+            <a href="{{ url_for('analysis') }}" class="nav-item {% if request.endpoint == 'analysis' %}active{% endif %}">
+                <i class="fas fa-chart-bar"></i>数据分析
+            </a>
+            <a href="{{ url_for('guide') }}" class="nav-item {% if request.endpoint == 'guide' %}active{% endif %}">
+                <i class="fas fa-question-circle"></i>使用指南
+            </a>
+        </nav>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <div class="chat-assistant chat-minimized" id="chatAssistant">
+        <div class="chat-header">
+            <i class="fas fa-robot"></i>
+            <span>AI助手</span>
+            <button class="chat-toggle" id="chatToggle">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+        <div class="chat-body">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant">
+                    <div class="message-content">
+                        你好！我是AI助手，有什么可以帮你的吗？
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="messageInput" placeholder="输入消息...">
+                <button id="sendMessage">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    .chat-assistant {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        width: 300px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .chat-header {
+        padding: 15px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 10px 10px 0 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .chat-toggle {
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+    }
+
+    .chat-body {
+        height: 400px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-messages {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+    }
+
+    .message {
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message.user {
+        align-items: flex-end;
+    }
+
+    .message-content {
+        max-width: 80%;
+        padding: 10px;
+        border-radius: 10px;
+        background: #f0f2f5;
+    }
+
+    .message.user .message-content {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .chat-input {
+        padding: 15px;
+        display: flex;
+        gap: 10px;
+        border-top: 1px solid #eee;
+    }
+
+    .chat-input input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        outline: none;
+    }
+
+    .chat-input button {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chat-minimized .chat-body {
+        display: none;
+    }
+
+    .chat-minimized {
+        width: auto;
+    }
+
+    .chat-minimized .chat-header {
+        padding: 15px;
+        border-radius: 10px;
+        width: 50px;
+        height: 50px;
+        justify-content: center;
+    }
+
+    .chat-minimized .chat-header span,
+    .chat-minimized .chat-header .chat-toggle {
+        display: none;
+    }
+
+    .chat-minimized .chat-header i {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+    </style>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatAssistant = document.getElementById('chatAssistant');
+        const chatToggle = document.getElementById('chatToggle');
+        const chatHeader = document.querySelector('.chat-header');
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendMessage = document.getElementById('sendMessage');
+
+        // 由于初始状态是最小化的，需要确保图标状态正确
+        const icon = chatToggle.querySelector('i');
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+
+        // 切换聊天窗口 - 将点击事件监听器绑定到整个header
+        chatHeader.addEventListener('click', (e) => {
+            // 如果点击的是输入框，不触发切换
+            if (e.target.closest('.chat-input')) {
+                return;
+            }
+            
+            chatAssistant.classList.toggle('chat-minimized');
+            const icon = chatToggle.querySelector('i');
+            if (chatAssistant.classList.contains('chat-minimized')) {
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
+        });
+
+        // 发送消息
+        async function sendMessageToAI() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage(message, 'user');
+            messageInput.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    addMessage(result.data, 'assistant');
+                } else {
+                    addMessage('抱歉，我遇到了一些问题。', 'assistant');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('抱歉，发生了错误。', 'assistant');
+            }
+        }
+
+        // 添加消息到聊天窗口
+        function addMessage(content, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">${content}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 发送消息事件
+        sendMessage.addEventListener('click', sendMessageToAI);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessageToAI();
+            }
+        });
+    });
+    </script>
+
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}{{ example.title }} - 优秀范文{% endblock %}
+
+{% block header %}{{ example.title }}{% endblock %}
+
+{% block styles %}
+<style>
+    .example-detail-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 2rem;
+    }
+
+    .example-meta {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: var(--border-radius);
+        display: flex;
+        gap: 2rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+    }
+
+    .example-content {
+        background: white;
+        padding: 2rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        margin-bottom: 2rem;
+        line-height: 1.8;
+        white-space: pre-line;
+    }
+
+    .example-analysis {
+        background: #f8f9fa;
+        padding: 2rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 2rem;
+    }
+
+    .analysis-title {
+        color: var(--secondary-color);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--primary-color);
+    }
+
+    .analysis-content {
+        white-space: pre-line;
+        line-height: 1.8;
+    }
+
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.8rem 1.5rem;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+        transform: translateY(-2px);
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="example-detail-container">
+    <div class="example-meta">
+        <div class="meta-item">
+            <i class="fas fa-graduation-cap"></i>
+            <span>{{ example.grade }}</span>
+        </div>
+        <div class="meta-item">
+            <i class="fas fa-tag"></i>
+            <span>{{ example.type }}</span>
+        </div>
+    </div>
+
+    <div class="example-content">
+        {{ example.content }}
+    </div>
+
+    <div class="example-analysis">
+        <h3 class="analysis-title">点评与赏析</h3>
+        <div class="analysis-content">
+            {{ example.analysis }}
+        </div>
+    </div>
+
+    <a href="{{ url_for('examples') }}" class="back-btn">
+        <i class="fas fa-arrow-left"></i>
+        返回范文列表
+    </a>
+</div>
+{% endblock %} 
