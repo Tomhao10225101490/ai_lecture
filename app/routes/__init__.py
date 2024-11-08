@@ -1,6 +1,9 @@
 from flask import render_template, request, jsonify
 from app.utils.ai_review import analyze_essay
 from app.utils.ai_chat import chat_with_ai
+from app.models import db, EssayHistory
+from datetime import datetime, timedelta
+from sqlalchemy import func
 
 def register_routes(app):
     @app.route('/')
@@ -34,6 +37,7 @@ def register_routes(app):
             title = data.get('title', '')
             content = data.get('content', '')
             grade = data.get('grade', '')
+            essay_type = data.get('type', '记叙文')  # 从请求中获取文章类型
             
             if not all([title, content, grade]):
                 return jsonify({
@@ -48,6 +52,19 @@ def register_routes(app):
                     'success': False,
                     'message': '评阅失败，请稍后重试'
                 }), 500
+            
+            # 保存评阅历史
+            history = EssayHistory(
+                title=title,
+                content=content,
+                grade=grade,
+                total_score=result['total_score'],
+                review_result=result,
+                essay_type=essay_type,  # 确保设置文章类型
+                is_example=result['total_score'] >= 88  # 88分以上自动标记为优秀范文
+            )
+            db.session.add(history)
+            db.session.commit()
                 
             return jsonify({
                 'success': True,
@@ -59,7 +76,7 @@ def register_routes(app):
             return jsonify({
                 'success': False,
                 'message': '服务器错误'
-            }), 500 
+            }), 500
 
     @app.route('/api/chat', methods=['POST'])
     def chat():
@@ -89,45 +106,278 @@ def register_routes(app):
 
     @app.route('/example/<int:example_id>')
     def example_detail(example_id):
-        # 这里可以添加从数据库获取范文的逻辑
-        # 现在先使用模拟数据
-        example_data = {
-            1: {
-                "title": "春天的早晨",
-                "grade": "高中",
-                "type": "记叙文",
-                "content": """
-                清晨，第一缕阳光透过窗帘洒在书桌上，我推开窗，深深地呼吸着春天的气息。
-                远处的山峦笼罩在薄薄的晨雾中，像是一幅水墨画。小区里的樱花树开得正艳，
-                粉白的花瓣随风飘落，在空中划出优美的弧线。鸟儿在枝头欢快地啼叫，仿佛在
-                歌颂这美好的春日。
-                
-                漫步在小区的林荫道上，我感受着春天的气息。嫩绿的草地上布满了晶莹的露珠，
-                在阳光下闪闪发光。蒲公英的绒球随风摇曳，像是在跳一支优美的华尔兹。
-                
-                这样的春天，让人心旷神怡，充满希望。我站在这里，聆听着春天的声音，感受
-                着生命的律动，内心充满了对未来的期待。
-                """,
-                "analysis": """
-                这篇作文以细腻的笔触描绘了春天早晨的美景，通过视觉、听觉、嗅觉等多种感官的描写，
-                生动地展现了春天的勃勃生机。文章结构清晰，语言优美，意境深远。
-                
-                亮点：
-                1. 运用了丰富的修辞手法，如比喻、拟人等
-                2. 多角度、多层次的细节描写
-                3. 感情真挚自然，与景物描写完美融合
-                
-                写作技巧：
-                1. 善于运用感官描写，让画面更加生动
-                2. 注重细节刻画，突出春天的特征
-                3. 情景交融，抒情自然不做作
-                """
-            },
-            # 可以添加更多范文数据
-        }
-        
-        example = example_data.get(example_id)
-        if not example:
-            return "范文不存在", 404
+        try:
+            example = EssayHistory.query.get_or_404(example_id)
             
-        return render_template('example_detail.html', example=example)
+            # 确保只能查看88分以上的作文
+            if example.total_score < 88:
+                return "范文不存在", 404
+                
+            return render_template('example_detail.html', example={
+                'title': example.title,
+                'grade': example.grade,
+                'type': example.essay_type,
+                'content': example.content,
+                'analysis': example.review_result.get('overall_review', '')
+            })
+            
+        except Exception as e:
+            print(f"Error in example_detail: {e}")
+            return "范文加载失败", 500
+
+    @app.route('/api/history')
+    def get_history():
+        try:
+            # 获取筛选参数
+            grade = request.args.get('grade', 'all')
+            time_range = request.args.get('time_range', 'all')
+            
+            # 构建查询
+            query = EssayHistory.query
+            
+            if grade != 'all':
+                query = query.filter_by(grade=grade)
+                
+            if time_range != 'all':
+                if time_range == 'week':
+                    days = 7
+                elif time_range == 'month':
+                    days = 30
+                elif time_range == 'year':
+                    days = 365
+                    
+                from datetime import timedelta
+                cutoff = datetime.utcnow() - timedelta(days=days)
+                query = query.filter(EssayHistory.created_at >= cutoff)
+            
+            # 按时间倒序排序
+            histories = query.order_by(EssayHistory.created_at.desc()).all()
+            
+            return jsonify({
+                'success': True,
+                'data': [history.to_dict() for history in histories]
+            })
+            
+        except Exception as e:
+            print(f"Error in get_history: {e}")
+            return jsonify({
+                'success': False,
+                'message': '获取历史记录失败'
+            }), 500
+
+    @app.route('/api/history/<int:history_id>', methods=['GET'])
+    def get_history_detail(history_id):
+        try:
+            history = EssayHistory.query.get_or_404(history_id)
+            
+            # 构建返回数据
+            data = {
+                'title': history.title,
+                'content': history.content,
+                'grade': history.grade,
+                'total_score': history.total_score,
+                'created_at': history.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                **history.review_result  # 展开评阅结果
+            }
+            
+            return jsonify({
+                'success': True,
+                'data': data
+            })
+            
+        except Exception as e:
+            print(f"Error in get_history_detail: {e}")
+            return jsonify({
+                'success': False,
+                'message': '获取评阅结果失败'
+            }), 500
+
+    @app.route('/api/history/<int:history_id>', methods=['DELETE'])
+    def delete_history(history_id):
+        try:
+            history = EssayHistory.query.get_or_404(history_id)
+            db.session.delete(history)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': '删除成功'
+            })
+            
+        except Exception as e:
+            print(f"Error in delete_history: {e}")
+            return jsonify({
+                'success': False,
+                'message': '删除失败'
+            }), 500
+
+    @app.route('/api/examples')
+    def get_examples():
+        try:
+            # 获取筛选参数
+            grade = request.args.get('grade', 'all')
+            essay_type = request.args.get('type', 'all')
+            
+            # 构建查询
+            query = EssayHistory.query.filter(
+                EssayHistory.total_score >= 88  # 88分以上的作文
+            )
+            
+            if grade != 'all':
+                query = query.filter_by(grade=grade)
+                
+            if essay_type != 'all':
+                query = query.filter_by(essay_type=essay_type)
+            
+            # 按分数降序排序
+            examples = query.order_by(EssayHistory.total_score.desc()).all()
+            
+            return jsonify({
+                'success': True,
+                'data': [example.to_dict() for example in examples]
+            })
+            
+        except Exception as e:
+            print(f"Error in get_examples: {e}")
+            return jsonify({
+                'success': False,
+                'message': '获取范文失败'
+            }), 500
+
+    @app.route('/api/analysis/stats')
+    def get_analysis_stats():
+        try:
+            # 获取当前月份的开始日期
+            now = datetime.utcnow()
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # 计算各项统计数据
+            monthly_count = EssayHistory.query.filter(
+                EssayHistory.created_at >= month_start
+            ).count()
+            
+            avg_score = db.session.query(
+                func.avg(EssayHistory.total_score)
+            ).scalar() or 0
+            
+            max_score = db.session.query(
+                func.max(EssayHistory.total_score)
+            ).scalar() or 0
+            
+            excellent_count = EssayHistory.query.filter(
+                EssayHistory.total_score >= 88
+            ).count()
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'monthly_count': monthly_count,
+                    'avg_score': round(float(avg_score), 1),
+                    'max_score': int(max_score),
+                    'excellent_count': excellent_count
+                }
+            })
+        except Exception as e:
+            print(f"Error in get_analysis_stats: {e}")
+            return jsonify({
+                'success': False,
+                'message': '获取统计数据失败'
+            }), 500
+
+    @app.route('/api/analysis/trend')
+    def get_score_trend():
+        try:
+            time_range = request.args.get('range', 'week')
+            
+            # 确定时间范围
+            now = datetime.utcnow()
+            if time_range == 'week':
+                start_date = now - timedelta(days=7)
+                group_by = func.date(EssayHistory.created_at)
+                date_format = '%Y-%m-%d'
+            elif time_range == 'month':
+                start_date = now - timedelta(days=30)
+                group_by = func.date(EssayHistory.created_at)
+                date_format = '%Y-%m-%d'
+            else:  # year
+                start_date = now - timedelta(days=365)
+                group_by = func.date_format(EssayHistory.created_at, '%Y-%m')
+                date_format = '%Y-%m'
+            
+            # 查询每天的平均分数
+            scores = db.session.query(
+                group_by.label('date'),
+                func.avg(EssayHistory.total_score).label('score')
+            ).filter(
+                EssayHistory.created_at >= start_date
+            ).group_by('date').all()
+            
+            # 格式化结果
+            result = [
+                {
+                    'date': date.strftime(date_format) if isinstance(date, datetime) else date,
+                    'score': round(float(score), 1)
+                }
+                for date, score in scores
+            ]
+            
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+        except Exception as e:
+            print(f"Error in get_score_trend: {e}")
+            return jsonify({
+                'success': False,
+                'message': '获取趋势数据失败'
+            }), 500
+
+    @app.route('/api/analysis/dimensions')
+    def get_dimension_analysis():
+        try:
+            # 计算各维度的平均分数
+            dimensions = ['内容立意', '结构布局', '语言表达', '书写规范']
+            current_scores = []
+            avg_scores = []
+            
+            for dimension in dimensions:
+                # 获取最近一次评阅的分数
+                latest = EssayHistory.query.order_by(
+                    EssayHistory.created_at.desc()
+                ).first()
+                
+                if latest:
+                    for dim in latest.review_result['dimensions']:
+                        if dim['name'] == dimension:
+                            current_scores.append(dim['score'])
+                            break
+                else:
+                    current_scores.append(0)
+                
+                # 计算历史平均分
+                total = 0
+                count = 0
+                histories = EssayHistory.query.all()
+                for history in histories:
+                    for dim in history.review_result['dimensions']:
+                        if dim['name'] == dimension:
+                            total += dim['score']
+                            count += 1
+                            break
+                
+                avg_scores.append(round(total / count if count > 0 else 0, 1))
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'dimensions': dimensions,
+                    'current_scores': current_scores,
+                    'avg_scores': avg_scores
+                }
+            })
+        except Exception as e:
+            print(f"Error in get_dimension_analysis: {e}")
+            return jsonify({
+                'success': False,
+                'message': '获取维度分析失败'
+            }), 500
